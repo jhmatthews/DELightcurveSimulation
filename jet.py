@@ -63,7 +63,7 @@ def get_lc(lognorm_params, PSD_params, tbin, Age):
 	RedNoiseL,RandomSeed,aliasTbin = 100,12,100
 	N = Age / tbin
 
-	lc = Simulate_DE_Lightcurve(BendingPL, (A,v_bend,a_low,a_high,c),st.lognorm,lognorm_params,
+	lc = Simulate_DE_Lightcurve(BendingPL, PSD_params,st.lognorm,lognorm_params,
 	                                RedNoiseL=RedNoiseL,aliasTbin=aliasTbin,randomSeed=RandomSeed,LClength=Age, tbin=tbin)
 
 	return (lc)
@@ -74,8 +74,10 @@ pl_index = 1
 # A,v_bend,a_low,a_high,c = 1, 1e-3, pl_index, 10, 1
 PSD_params = (1, 1e-3, pl_index, 10, 1)
 lognorm_params = (1.5,0,np.exp(1.5))
+tbin = 100 # 100 kyr 
+# Age of 1000 means 100 Myr
 # lognorm, PSD, tbin and Age
-lc = get_lc(lognorm_params, PSD_params, 100,2000)
+lc = get_lc(lognorm_params, PSD_params, tbin,1000)
 
 # get losses
 elems = ["H", "He", "N", "Fe"]
@@ -93,16 +95,20 @@ lc.Save_Lightcurve('lightcurve.dat')
 # time is in kyr, so convert to Myr
 times = np.arange(0,1000.0*tbin,tbin) 
 
-powers = power_threshold(energies, v_over_c=0.5)
-fraction = np.zeros_like(energies)
-for_cdf = powers / flux_scale
+# flux_scale = 1e43
+# powers = power_threshold(energies, v_over_c=0.5)
+# fraction = np.zeros_like(energies)
+# for_cdf = powers / flux_scale
 
-for i, energy in enumerate(energies):
-	fraction[i] = np.sum(flux > powers[i]) / (1.0*N)
+# for i, energy in enumerate(energies):
+# 	fraction[i] = np.sum(flux > powers[i]) / (1.0*N)
 
 
-flux_scales = np.logspace(42,45,num=10)
+flux_scales = np.logspace(43,45,num=20)
 betas = np.arange(2,3,0.1)
+
+lgammas = np.zeros((len(flux_scales), len(betas)))
+lcrs = np.zeros((len(flux_scales), len(betas)))
 
 for i_flux, flux_scale in enumerate(flux_scales):
 	#flux_scale = 1e43
@@ -111,7 +117,7 @@ for i_flux, flux_scale in enumerate(flux_scales):
 
 #plt.clf()
 
-	for i_beta, BETA in enumerate(betas)
+	for i_beta, BETA in enumerate(betas):
 
 
 		frac_elem = np.array([1.0,0.1,1e-4,3.16e-05])
@@ -128,7 +134,7 @@ for i_flux, flux_scale in enumerate(flux_scales):
 		R0 = 1e9
 		Zbar = np.sum(frac_elem * z_elem)
 
-		print (np.mean(flux), 3e59 / np.mean(flux) / 1e6 / YR)
+		#print (np.mean(flux), 3e59 / np.mean(flux) / 1e6 / YR)
 
 		lgamma = np.zeros_like(flux)
 
@@ -136,7 +142,7 @@ for i_flux, flux_scale in enumerate(flux_scales):
 
 			# get the maximum rigidity
 			Rmax = max_energy(flux[i], v_over_c=0.5)
-			print (i, Rmax)
+			#print (i, Rmax)
 
 			# normalisation of cosmic ray distribution
 			if BETA == 2:
@@ -224,10 +230,16 @@ for i_flux, flux_scale in enumerate(flux_scales):
 					#plt.plot(energies, 1e43*((energies / 1e9)**-3), c="k", ls=":")
 					plt.loglog()
 
-			print ("UHECR LUM:", lcr, all_lobe)
 			if plot_all:
 				plt.savefig("spectra{:03d}.png".format(i))	
 				plt.close("all")
+
+		select = (energies > 1e10) * (energies < 2e10)
+		my_lgamma = np.trapz(energies * EV2ERGS, energies*ncr[0])
+		distance = 3.7 * PARSEC * 1e6
+		lgammas[i_flux,i_beta] = my_lgamma * 1e-4 * 4.5e-26 * 0.5 * C / 4.0 / PI / distance / distance
+		lcrs[i_flux,i_beta] = lcr
+		print ("BETA {:.1f} median lum {:8.4e} mean lum {:8.4e} UHECR LUM: {:8.4e} {:8.4e}".format(BETA, flux_scale, np.mean(flux), lcr, lgammas[i_flux,i_beta]))
 
 print (np.mean(flux), 3e59 / np.mean(flux) / 1e6 / YR)
 import naima
